@@ -6,3 +6,4 @@ C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WC
 C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Host\obj\Debug\EventManager_CSharp_WCF_Host.csprojResolveAssemblyReference.cache
 C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Host\obj\Debug\EventManager_CSharp_WCF_Host.exe
 C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Host\obj\Debug\EventManager_CSharp_WCF_Host.pdb
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Host\bin\Debug\Microsoft.Samples.XmlRpc.dll

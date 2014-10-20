@@ -1,0 +1,9 @@
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\bin\Debug\EventManager_CSharp_WCF_TestClient.exe.config
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\bin\Debug\EventManager_CSharp_WCF_TestClient.exe
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\bin\Debug\EventManager_CSharp_WCF_TestClient.pdb
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\bin\Debug\EventManager_CSharp_WCF_Lib.dll
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\bin\Debug\EventManager_CSharp_WCF_Lib.pdb
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\obj\Debug\EventManager_CSharp_WCF_TestClient.csprojResolveAssemblyReference.cache
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\obj\Debug\EventManager_CSharp_WCF_TestClient.exe
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\obj\Debug\EventManager_CSharp_WCF_TestClient.pdb
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_TestClient\bin\Debug\Microsoft.Samples.XmlRpc.dll

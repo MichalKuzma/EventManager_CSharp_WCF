@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 using System.ServiceModel;
 using EventManager_CSharp_WCF_Lib;
 using System.ServiceModel.Description;
- 
+using System.ServiceModel.Channels;
+using System.ServiceModel.Web;
+using Microsoft.Samples.XmlRpc;
+using Microsoft.ServiceModel.XmlRpc;
+
 namespace EventManager_CSharp_WCF_Lib
 {
     public class Listener
@@ -27,23 +31,30 @@ namespace EventManager_CSharp_WCF_Lib
         public void Start()
         {
             //Create a URI to serve as the base address
-            Uri baseAddress = new Uri("http://localhost:8080/");
+            Uri baseAddress = new UriBuilder(Uri.UriSchemeHttp, Environment.MachineName, -1, "").Uri;
 
             //Create a ServiceHost instance
             selfHost = new ServiceHost(typeof(EventManager), baseAddress);
 
+
             try
             {
-                //Add service endpoint
-                selfHost.AddServiceEndpoint(typeof(IEventManager), new WSHttpBinding(), "EventManager");
+                var epXmlRpc = selfHost.AddServiceEndpoint(
+                    typeof(IEventManager),
+                    new WebHttpBinding(WebHttpSecurityMode.None),
+                    new Uri(baseAddress, "./EventManager"));
 
-                //Enable metadata exchange
-                ServiceMetadataBehavior smb = new ServiceMetadataBehavior();
-                smb.HttpGetEnabled = true;
-                selfHost.Description.Behaviors.Add(smb);
+                epXmlRpc.EndpointBehaviors.Add(new Microsoft.Samples.XmlRpc.XmlRpcEndpointBehavior());
 
                 //Start the service
                 selfHost.Open();
+
+                Console.WriteLine("Service up and running at:");
+                foreach (var ea in selfHost.Description.Endpoints)
+                {
+                    Console.WriteLine(ea.Address);
+                }
+
             }
             catch (CommunicationException ce)
             {

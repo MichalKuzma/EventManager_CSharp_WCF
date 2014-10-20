@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using EventManager_CSharp_WCF_Lib;
 using System.ServiceModel;
 using System.Runtime.Serialization;
+using System.ServiceModel.Web;
+using Microsoft.Samples.XmlRpc;
+using Microsoft.ServiceModel.XmlRpc;
 
 namespace EventManager_CSharp_WCF_Lib
 {
@@ -17,11 +20,20 @@ namespace EventManager_CSharp_WCF_Lib
 
         public Client(string serverAddress)
         {
-            eManager = ChannelFactory<IEventManager>.CreateChannel(
-                new WSHttpBinding(),
-                new EndpointAddress(
-                    "http://" + serverAddress + ":8080/EventManager"
-                ));
+            Uri eventManagerAddress = new Uri("http://" + serverAddress + ":80/EventManager");
+
+            ChannelFactory<IEventManager> eventManagerFactory =
+                new ChannelFactory<IEventManager>(
+                    new WebHttpBinding(WebHttpSecurityMode.None),
+                    new EndpointAddress(eventManagerAddress));
+            eventManagerFactory.Endpoint.EndpointBehaviors.Add(new Microsoft.Samples.XmlRpc.XmlRpcEndpointBehavior());
+
+            eManager = eventManagerFactory.CreateChannel();
+        }
+
+        public void Close()
+        {
+            ((IClientChannel)eManager).Close();
         }
 
         [DataMember]

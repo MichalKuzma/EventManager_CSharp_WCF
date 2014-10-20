@@ -13,13 +13,6 @@ namespace EventManager_CSharp_WCF_Lib
     public class EventManager : IEventManager
     {
         private static EventManager instance;
-        /*
-        /// <summary>
-        /// Default Constructor.
-        /// </summary>
-        private EventManager()
-        {
-        }*/
 
         /// <summary>
         /// Singleton pattern instantiation of the EventManager object.
@@ -87,9 +80,10 @@ namespace EventManager_CSharp_WCF_Lib
                     Console.Out.WriteLine("Illegal command: " + _input);
                 }
             }
+            Listener.Instance.Stop();
         }
 
-        public void _modify(string id, string field, string newValue)
+        public int _modify(string id, string field, string newValue)
         {
             StreamReader _sr = new StreamReader(File.Open(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events\\" + id + ".event"), FileMode.Open, FileAccess.Read));
             string _s = _sr.ReadLine();
@@ -100,40 +94,16 @@ namespace EventManager_CSharp_WCF_Lib
             {
                 case "date":
                     string[] _date = newValue.Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
-                    try
-                    {
-                        _datetime = new DateTime(Int32.Parse(_date[2]), Int32.Parse(_date[1]), Int32.Parse(_date[0]), 0, 0, 0);
-                    }
-                    catch
-                    {
-                        Console.WriteLine("Invalid date given");
-                        return;
-                    }
+                    _datetime = new DateTime(Int32.Parse(_date[2]), Int32.Parse(_date[1]), Int32.Parse(_date[0]), 0, 0, 0);
                     _fields[1] = _datetime.Day + "." + _datetime.Month + "." + _datetime.Year;
                     break;
                 case "time":
                     string[] _time = newValue.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
-                    try
-                    {
-                        _datetime = new DateTime(1, 1, 1, Int32.Parse(_time[0]), Int32.Parse(_time[1]), 0);
-                    }
-                    catch
-                    {
-                        Console.WriteLine("Invalid time given");
-                        return;
-                    }
+                    _datetime = new DateTime(1, 1, 1, Int32.Parse(_time[0]), Int32.Parse(_time[1]), 0);
                     _fields[2] = _datetime.ToShortTimeString();
                     break;
                 case "duration":
-                    try
-                    {
-                        Int32.Parse(_fields[3]);
-                    }
-                    catch
-                    {
-                        Console.WriteLine("Invalid duration given. Should be an integer");
-                        return;
-                    }
+                    Int32.Parse(_fields[3]);
                     _fields[3] = newValue;
                     break;
                 case "header":
@@ -144,12 +114,13 @@ namespace EventManager_CSharp_WCF_Lib
                     break;
                 default:
                     Console.WriteLine("Wrong field name given");
-                    return;
+                    return 1;
             }
             _s = String.Join("\t", _fields);
             StreamWriter _sw = new StreamWriter(File.Open(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events\\" + id + ".event"), FileMode.Create, FileAccess.Write));
             _sw.WriteLine(_s);
             _sw.Close();
+            return 0;
         }
 
         /// <summary>
@@ -169,6 +140,49 @@ namespace EventManager_CSharp_WCF_Lib
             string _field = _tokens[2];
             string _newValue = _tokens[3];
 
+            DateTime _datetime;
+            switch (_field)
+            {
+                case "date":
+                    string[] _date = _newValue.Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
+                    try
+                    {
+                        new DateTime(Int32.Parse(_date[2]), Int32.Parse(_date[1]), Int32.Parse(_date[0]), 0, 0, 0);
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Invalid date given");
+                        return;
+                    }
+                    break;
+                case "time":
+                    string[] _time = _newValue.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
+                    try
+                    {
+                        _datetime = new DateTime(1, 1, 1, Int32.Parse(_time[0]), Int32.Parse(_time[1]), 0);
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Invalid time given");
+                        return;
+                    }
+                    break;
+                case "duration":
+                    try
+                    {
+                        Int32.Parse(_newValue);
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Invalid duration given. Should be an integer");
+                        return;
+                    }
+                    break;
+                default:
+                    Console.WriteLine("Wrong field name given");
+                    return;
+            }
+
             _modify(_id, _field, _newValue);
             foreach (Client _client in Client.clientsMap.Values)
             {
@@ -176,9 +190,10 @@ namespace EventManager_CSharp_WCF_Lib
             }
         }
 
-        public void _drop(string ServerAddress)
+        public int _drop(string ServerAddress)
         {
             Client.clientsMap.Remove(ServerAddress);
+            return 0;
         }
 
         /// <summary>
@@ -194,14 +209,13 @@ namespace EventManager_CSharp_WCF_Lib
                 Console.Out.WriteLine("drop [ip]: Remove the host with the given IP address from the list of remote hosts. \r\n");
                 return;
             }
-            //ToDo: Add additional input validity checks
             string _ip = _tokens[1];
 
             Client.clientsMap[_ip].eManager._drop(getLocalIP());
             _drop(_ip);
         }
 
-        private string getLocalIP()
+        public string getLocalIP()
         {
             IPHostEntry host;
             string localIP = "";
@@ -214,11 +228,11 @@ namespace EventManager_CSharp_WCF_Lib
             return localIP;
         }
 
-        public Client _register(string serverAddress)
+        public int _register(string serverAddress)
         {
             Client newClient = new Client(serverAddress);
             Client.clientsMap.Add(serverAddress, newClient);
-            return newClient;
+            return 0;
         }
 
         private void register(string _input)
@@ -230,9 +244,9 @@ namespace EventManager_CSharp_WCF_Lib
                 Console.Out.WriteLine("register [ip]: Register the host with the given IP address as remote host.\r\n");
                 return;
             }
-            //ToDo: Add additional input validity checks
             string _ip = _tokens[1];
-            Client newClient = _register(_tokens[1]);
+            _register(_tokens[1]);
+            Client newClient = new Client(_tokens[1]);
             newClient.eManager._register(getLocalIP());
         }
 
@@ -252,22 +266,14 @@ namespace EventManager_CSharp_WCF_Lib
             }
         }
 
-        public void _add(DateTime datetime, int duration, string header, string comment)
+        public int _add(string id, string date, string time, string duration, string header, string comment)
         {
-            DirectoryInfo di = new DirectoryInfo(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events"));
-            int id = 0;
-            foreach (FileInfo fi in di.GetFiles())
-            {
-                string fileName = fi.Name.Substring(0, fi.Name.Length - ".event".Length);
-                int fileNum = Int32.Parse(fileName);
-                if (fileNum >= id)
-                    id = fileNum + 1;
-            }
-            string newEventFileContent = id.ToString() + "\t" + datetime.Day + "." + datetime.Month + "." + datetime.Year + "\t" + datetime.ToShortTimeString() + "\t" + duration.ToString() + "\t" + header + "\t" + comment;
+            string newEventFileContent = id.ToString() + "\t" + date + "\t" + time + "\t" + duration.ToString() + "\t" + header + "\t" + comment;
             string newEventFilePath = "..\\..\\..\\events\\" + id.ToString() + ".event";
             StreamWriter _sw = new StreamWriter(File.Open(newEventFilePath, FileMode.CreateNew, FileAccess.Write));
             _sw.WriteLine(newEventFileContent);
             _sw.Close();
+            return 0;
         }
 
         /// <summary>
@@ -321,20 +327,32 @@ namespace EventManager_CSharp_WCF_Lib
             }
 
             DateTime _datetime = new DateTime(Int32.Parse(_date[2]), Int32.Parse(_date[1]), Int32.Parse(_date[0]), Int32.Parse(_time[0]), Int32.Parse(_time[1]), 0);
-            int _duration = Int32.Parse(_tokens[3]);
             string _header = _tokens[4];
             string _comment = _tokens[5];
 
-            _add(_datetime, _duration, _header, _comment);
+            DirectoryInfo di = new DirectoryInfo(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events"));
+            int id = 0;
+            foreach (FileInfo fi in di.GetFiles())
+            {
+                string fileName = fi.Name.Substring(0, fi.Name.Length - ".event".Length);
+                int fileNum = Int32.Parse(fileName);
+                if (fileNum >= id)
+                    id = fileNum + 1;
+            }
+
+            string date = _datetime.Day + "." + _datetime.Month + "." + _datetime.Year;
+
+            _add(id.ToString(), date, _datetime.ToShortTimeString(), _tokens[3], _header, _comment);
             foreach (Client _client in Client.clientsMap.Values)
             {
-                _client.eManager._add(_datetime, _duration, _header, _comment);
+                _client.eManager._add(id.ToString(), date, _datetime.ToShortTimeString(), _tokens[3], _header, _comment);
             }
         }
 
-        public void _remove(string id)
+        public int _remove(string id)
         {
             File.Delete(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events\\" + id + ".event"));
+            return 0;
         }
 
         /// <summary>
@@ -367,13 +385,14 @@ namespace EventManager_CSharp_WCF_Lib
             }
         }
 
-        public void _clear()
+        public int _clear()
         {
             DirectoryInfo _di = new DirectoryInfo(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events"));
             foreach (FileInfo _fi in _di.GetFiles())
             {
                 File.Delete(_fi.FullName);
             }
+            return 0;
         }
 
         /// <summary>
@@ -401,6 +420,13 @@ namespace EventManager_CSharp_WCF_Lib
             Console.Out.WriteLine("register [ip]: Register the host with the given IP address as remote host.\r\n");
             Console.Out.WriteLine("remove [id]: Remove the event with the given id.\r\n");
             Console.Out.WriteLine("quit: Quit the application.\r\n");
+        }
+
+        public int _say(string text)
+        {
+            Console.Out.WriteLine(text);
+            Console.Out.Write(">");
+            return 0;
         }
     }
 }

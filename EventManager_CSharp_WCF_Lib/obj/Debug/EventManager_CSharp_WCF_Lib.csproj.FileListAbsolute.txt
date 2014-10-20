@@ -4,3 +4,5 @@ C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WC
 C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Lib\bin\Debug\EventManager_CSharp_WCF_Lib.pdb
 C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Lib\obj\Debug\EventManager_CSharp_WCF_Lib.dll
 C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Lib\obj\Debug\EventManager_CSharp_WCF_Lib.pdb
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Lib\bin\Debug\Microsoft.Samples.XmlRpc.dll
+C:\Users\Michał\Documents\GitHub\EventManager_CSharp_WCF\EventManager_CSharp_WCF_Lib\bin\Debug\Microsoft.ServiceModel.XmlRpc.dll
