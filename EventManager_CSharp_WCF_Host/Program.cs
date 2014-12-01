@@ -12,8 +12,6 @@ namespace EventManager_CSharp_WCF_Host
         static void Main(string[] args)
         {
             Listener.Instance.Start();
-
-            EventManager.Instance.Start();
         }
     }
 }

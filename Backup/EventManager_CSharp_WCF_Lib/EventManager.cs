@@ -7,136 +7,12 @@ using System.Text;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 
 namespace EventManager_CSharp_WCF_Lib
 {
-    public class EventManager
+    public class EventManager : IEventManager
     {
-        //For testing on single machine
-        public static int servNum = 1;
-
         private static EventManager instance;
-
-        public int Protocol;
-        public const int XML_RPC = 0;
-        public const int REMOTING = 1;
-
-        public Semaphore token;
-        public bool waitsForToken = false;
-
-        public Client next = null, prev = null;
-
-        public Semaphore gotToken;
-        public Thread tokenAdmin;
-        public bool shouldStop = false;
-
-        public static bool singleMachineDebug = false;
-
-        /// <summary>
-        /// Checks if possible to add given event. Returns true, if no existing event overlaps the new one.
-        /// </summary>
-        /// <param name="_date">Date of the new event</param>
-        /// <param name="_duration">Duration of the new event</param>
-        /// <param name="exclude">Optional parameter. If set, method skips check of the event with given id. Used when checking modification.</param>
-        /// <returns>Bool determing if new event is valid (doesn't overlap existing ones)</returns>
-        private bool confirmTime (DateTime _date, int _duration, string exclude = "")
-        {
-            DirectoryInfo di = new DirectoryInfo(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events"));
-            foreach (FileInfo fi in di.GetFiles())
-            {
-                if (exclude != "" && fi.Name == exclude + ".event")
-                    continue;
-                StreamReader _sr = new StreamReader(File.Open(fi.FullName, FileMode.Open, FileAccess.Read));
-                string _s = _sr.ReadLine();
-                _sr.Close();
-                string[] _tokens = _s.Split(new string[] { "\t" }, StringSplitOptions.RemoveEmptyEntries);
-                string[] _tempDate = _tokens[1].Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
-                string[] _tempTime = _tokens[2].Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
-                int dur = Int32.Parse(_tokens[3]);
-                DateTime date = new DateTime(Int32.Parse(_tempDate[2]), Int32.Parse(_tempDate[1]), Int32.Parse(_tempDate[0]), Int32.Parse(_tempTime[0]), Int32.Parse(_tempTime[1]), 0);
-                if ((date.CompareTo(_date) <= 0 && date.Add(new TimeSpan(0, dur, 0)).CompareTo(_date) >= 0) || (date.CompareTo(_date.Add(new TimeSpan(0, _duration, 0))) <= 0 && date.Add(new TimeSpan(0, dur, 0)).CompareTo(_date.Add(new TimeSpan(0, _duration, 0))) >= 0))
-                    return false;
-                if ((_date.CompareTo(date) <= 0 && _date.Add(new TimeSpan(0, _duration, 0)).CompareTo(date) >= 0) || (_date.CompareTo(date.Add(new TimeSpan(0, dur, 0))) <= 0 && _date.Add(new TimeSpan(0, _duration, 0)).CompareTo(date.Add(new TimeSpan(0, dur, 0))) >= 0))
-                    return false;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// No-parameter constructor. Sets the semaphores and starts "Semaphore administrator" thread.
-        /// </summary>
-        private EventManager()
-        {
-            token = new Semaphore(1, 1);
-            gotToken = new Semaphore(0, 1);
-            tokenAdmin = new Thread(new ThreadStart(administrateToken));
-            tokenAdmin.Start();
-        }
-        /// <summary>
-        /// Sets next peer in the ring
-        /// </summary>
-        /// <param name="nextAddress">Address of the next peer to add</param>
-        /// <returns>0 if no error occured</returns>
-        public int setNext(string nextAddress)
-        {
-            if (nextAddress != "")
-                next = new Client(nextAddress);
-            else
-                next = null;
-            return 0;
-        }
-
-        /// <summary>
-        /// Sets previous peer in the ring
-        /// </summary>
-        /// <param name="prevAddress">Address of the previous peer to add</param>
-        /// <returns>0 if no error occured</returns>
-        public int setPrev(string prevAddress)
-        {
-            if (prevAddress != "")
-                prev = new Client(prevAddress);
-            else
-                prev = null;
-            return 0;
-        }
-
-        /// <summary>
-        /// Used to set the token on the current peer
-        /// </summary>
-        public void setToken()
-        {
-            if (waitsForToken)
-                token.Release();
-            else if (next != null)
-                next.makeFunction("SetToken", null);
-            else
-                token.Release();
-        }
-
-        /// <summary>
-        /// Forwards the token to next peer
-        /// </summary>
-        private void forwardToken()
-        {
-            if (next != null)
-                next.makeFunction("SetToken", null);
-            else
-                token.Release();
-        }
-
-        /// <summary>
-        /// Method run in separate thread used to administrate the token. It tecides what to do once the peer gets the token.
-        /// </summary>
-        private void administrateToken()
-        {
-            while (!shouldStop)
-            {
-                gotToken.WaitOne();
-                if (!shouldStop)
-                    setToken();
-            }
-        }
 
         /// <summary>
         /// Singleton pattern instantiation of the EventManager object.
@@ -199,43 +75,11 @@ namespace EventManager_CSharp_WCF_Lib
                 {
                     Console.Out.WriteLine("EventManager is terminating...");
                 }
-                else if (_input.StartsWith("say"))
-                {
-                    letThemTalk(_input);
-                }
-                else if (_input == "listPeers")
-                    listPeers();
                 else
                 {
                     Console.Out.WriteLine("Illegal command: " + _input);
                 }
             }
-
-            waitsForToken = true;
-            token.WaitOne();
-            waitsForToken = false;
-            if (next != null)
-            {
-                if (next.address == prev.address)
-                {
-                    prev.makeFunction("SetPrev", new string[] { "" });
-                    prev.makeFunction("SetNext", new string[] { "" });
-                }
-                else
-                {
-                    prev.makeFunction("SetNext", new string[] { next.address });
-                    next.makeFunction("SetPrev", new string[] { prev.address });
-                }
-            }
-            foreach (Client c in Client.clientsMap.Values)
-            {
-                if (EventManager.singleMachineDebug)
-                    //For debugging on a single machine
-                    c.makeFunction("Drop", new string[] { getLocalIP() + ":8000/xmlrpc" + EventManager.servNum.ToString() });
-                else
-                    c.makeFunction("Drop", new string[] { getLocalIP() });
-            }
-            forwardToken();
             Listener.Instance.Stop();
         }
 
@@ -339,70 +183,16 @@ namespace EventManager_CSharp_WCF_Lib
                     return;
             }
 
-            if (_field == "date" || _field == "time")
-            {
-                StreamReader _sr = new StreamReader(File.Open(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events\\" + _id + ".event"), FileMode.Open, FileAccess.Read));
-                string _s = _sr.ReadLine();
-                _sr.Close();
-                string[] _tempFields = _s.Split(new string[] { "\t" }, StringSplitOptions.RemoveEmptyEntries);
-                string[] _tempDate = _tempFields[1].Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
-                string[] _tempTime = _tempFields[2].Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
-                int dur = Int32.Parse(_tempFields[3]);
-                DateTime _date = new DateTime(Int32.Parse(_tempDate[2]), Int32.Parse(_tempDate[1]), Int32.Parse(_tempDate[0]), Int32.Parse(_tempTime[0]), Int32.Parse(_tempTime[1]), 0);
-                string[] temp;
-                if (_field == "date")
-                {
-                    temp = _newValue.Split(new string[] { "." }, StringSplitOptions.RemoveEmptyEntries);
-                    _date = new DateTime(Int32.Parse(temp[2]), Int32.Parse(temp[1]), Int32.Parse(temp[0]), _date.Hour, _date.Minute, _date.Second);
-                }
-                else if (_field == "time")
-                {
-                    temp = _newValue.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
-                    _date = new DateTime(_date.Year, _date.Month, _date.Day, Int32.Parse(temp[0]), Int32.Parse(temp[1]), _date.Second);
-                }
-                else if (_field == "duration")
-                    dur = Int32.Parse(_newValue);
-                if (!confirmTime(_date, dur, _id))
-                {
-                    Console.Out.WriteLine("New event overlaps with existing ones. Cannot be added");
-                    return;
-                }
-            }
-
-            waitsForToken = true;
-            token.WaitOne();
-            waitsForToken = false;
             _modify(_id, _field, _newValue);
             foreach (Client _client in Client.clientsMap.Values)
             {
-                _client.makeFunction("Modify", new string[] { _id, _field, _newValue });
+                _client.eManager._modify(_id, _field, _newValue);
             }
-            forwardToken();
         }
 
         public int _drop(string ServerAddress)
         {
-            if (next != null && next.address == ServerAddress)
-                if (next.makeFunction("GetNext", null) == next.makeFunction("GetPrev", null))
-                {
-                    next = null;
-                }
-                else
-                    next = new Client(Client.clientsMap[ServerAddress].makeFunction("GetNext", null));
-            if (prev != null && prev.address == ServerAddress)
-                if (prev.makeFunction("GetNext", null) == prev.makeFunction("GetPrev", null))
-                {
-                    prev = null;
-                }
-                else
-                    prev = new Client(Client.clientsMap[ServerAddress].makeFunction("GetPrev", null));
             Client.clientsMap.Remove(ServerAddress);
-            return 0;
-        }
-
-        public int _dropAll()
-        {
-            Client.clientsMap.Clear();
             return 0;
         }
 
@@ -420,24 +210,9 @@ namespace EventManager_CSharp_WCF_Lib
                 return;
             }
             string _ip = _tokens[1];
-            if (!Client.clientsMap.Keys.Contains(_ip))
-            {
-                Console.Out.WriteLine("Peer under given address is not connected with you.");
-                return;
-            }
 
-            Client.clientsMap[_ip].makeFunction("DropAll", null);
-            Client tempClient = Client.clientsMap[_ip];
+            Client.clientsMap[_ip].eManager._drop(getLocalIP());
             _drop(_ip);
-            tempClient.makeFunction("SetNext", new string[] { "" });
-            tempClient.makeFunction("SetPrev", new string[] { "" });
-            tempClient.makeFunction("SetToken", null);
-            foreach (Client c in Client.clientsMap.Values)
-            {
-                if (c.address != _ip)
-                    c.makeFunction("Drop", new string[] { _ip });
-            }
-
         }
 
         public string getLocalIP()
@@ -460,64 +235,8 @@ namespace EventManager_CSharp_WCF_Lib
             return 0;
         }
 
-        public int _addNewPeer(string newPeerAddress)
-        {
-            waitsForToken = true;
-            token.WaitOne();
-            waitsForToken = false;
-            
-            Client newPeer = new Client(newPeerAddress);
-            foreach (string address in Client.clientsMap.Keys)
-            {
-                newPeer.makeFunction("Register", new string[] { address });
-                Client.clientsMap[address].makeFunction("Register", new string[] { newPeerAddress });
-            }
-            Client.clientsMap.Add(newPeerAddress, newPeer);
-            if (EventManager.singleMachineDebug)
-            {
-                //For testing on a single machine
-                newPeer.makeFunction("Register", new string[] { getLocalIP() + ":8000/xmlrpc" + EventManager.servNum.ToString() });
-                newPeer.makeFunction("SetPrev", new string[] { getLocalIP() + ":8000/xmlrpc" + EventManager.servNum.ToString() });
-            }
-            else
-            {
-                newPeer.makeFunction("Register", new string[] { getLocalIP() });
-                newPeer.makeFunction("SetPrev", new string[] { getLocalIP() });
-            }
-
-            if (next != null)
-            {
-                next.makeFunction("SetPrev", new string[] { newPeerAddress });
-                newPeer.makeFunction("SetNext", new string[] { next.address });
-            }
-            else
-            {
-                if (EventManager.singleMachineDebug)
-                    //For debugging on a single machine
-                    newPeer.makeFunction("SetNext", new string[] { getLocalIP() + ":8000/xmlrpc" + EventManager.servNum.ToString() });
-                else
-                    newPeer.makeFunction("SetNext", new string[] { getLocalIP() });
-                prev = newPeer;
-            }
-            next = newPeer;
-
-            DirectoryInfo di = new DirectoryInfo(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events"));
-            foreach (FileInfo fi in di.GetFiles())
-            {
-                StreamReader _sr = new StreamReader(File.Open(fi.FullName, FileMode.Open, FileAccess.Read));
-                string _s = _sr.ReadLine();
-                _sr.Close();
-                string[] _tokens = _s.Split(new string[] { "\t" }, StringSplitOptions.RemoveEmptyEntries);
-                newPeer.makeFunction("Add", _tokens);
-            }
-
-            forwardToken();
-            return 0;
-        }
-
         private void register(string _input)
         {
-            token.WaitOne();
             string[] _tokens = _input.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
             if (_tokens.Count<string>() < 2)
             {
@@ -526,24 +245,9 @@ namespace EventManager_CSharp_WCF_Lib
                 return;
             }
             string _ip = _tokens[1];
-
-            Client newClient = new Client(_ip);
-
-            try
-            {
-                newClient.makeFunction("Say", new string[] { "Peer of address: " + getLocalIP() + ":8000/xmlrpc" + EventManager.servNum.ToString() + " registered you" });
-            }
-            catch
-            {
-                Console.Out.WriteLine("Wrong address given. Couldn't connect.");
-                return;
-            }
-
-            if (EventManager.singleMachineDebug)
-                //For debugging on a single machine
-                newClient.makeFunction("AddNewPeer", new string[] { getLocalIP() + ":8000/xmlrpc" + EventManager.servNum.ToString() });
-            else
-                newClient.makeFunction("AddNewPeer", new string[] { getLocalIP() });
+            _register(_tokens[1]);
+            Client newClient = new Client(_tokens[1]);
+            newClient.eManager._register(getLocalIP());
         }
 
         /// <summary>
@@ -578,15 +282,11 @@ namespace EventManager_CSharp_WCF_Lib
         /// <param name="_input">The input string</param>
         private void add(string _input)
         {
-            waitsForToken = true;
-            token.WaitOne();
-            waitsForToken = false;
             string[] _tokens = _input.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
             if (_tokens.Count<string>() < 6)
             {
                 Console.Out.WriteLine("Illegal arguments");
                 Console.Out.WriteLine("add [date] [time] [duration] [header] [comment] --> add a new event with the given arguments; date format: dd.mm.yyyy; time format: hh:mm; duration in minutes;\r\n");
-                forwardToken();
                 return;
             }
 
@@ -601,7 +301,6 @@ namespace EventManager_CSharp_WCF_Lib
             catch
             {
                 Console.WriteLine("Invalid date given");
-                forwardToken();
                 return;
             }
 
@@ -613,7 +312,6 @@ namespace EventManager_CSharp_WCF_Lib
             catch
             {
                 Console.WriteLine("Invalid time given");
-                forwardToken();
                 return;
             }
 
@@ -625,20 +323,12 @@ namespace EventManager_CSharp_WCF_Lib
             catch
             {
                 Console.WriteLine("Invalid duration given. Should be an integer");
-                forwardToken();
                 return;
             }
 
             DateTime _datetime = new DateTime(Int32.Parse(_date[2]), Int32.Parse(_date[1]), Int32.Parse(_date[0]), Int32.Parse(_time[0]), Int32.Parse(_time[1]), 0);
             string _header = _tokens[4];
             string _comment = _tokens[5];
-
-            if (!confirmTime(_datetime, Int32.Parse(_tokens[3])))
-            {
-                Console.Out.WriteLine("New event overlaps with existing ones. Cannot be added");
-                forwardToken();
-                return;
-            }
 
             DirectoryInfo di = new DirectoryInfo(System.IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "..\\..\\..\\events"));
             int id = 0;
@@ -655,9 +345,8 @@ namespace EventManager_CSharp_WCF_Lib
             _add(id.ToString(), date, _datetime.ToShortTimeString(), _tokens[3], _header, _comment);
             foreach (Client _client in Client.clientsMap.Values)
             {
-                _client.makeFunction("Add", new string[] { id.ToString(), date, _datetime.ToShortTimeString(), _tokens[3], _header, _comment });
+                _client.eManager._add(id.ToString(), date, _datetime.ToShortTimeString(), _tokens[3], _header, _comment);
             }
-            forwardToken();
         }
 
         public int _remove(string id)
@@ -672,15 +361,11 @@ namespace EventManager_CSharp_WCF_Lib
         /// <param name="_input">The input string</param>
         private void remove(string _input)
         {
-            waitsForToken = true;
-            token.WaitOne();
-            waitsForToken = false;
             string[] _tokens = _input.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries);
             if (_tokens.Count<string>() < 2)
             {
                 Console.Out.WriteLine("Illegal arguments");
                 Console.Out.WriteLine("remove [id] --> remove the event with the given id;\r\n");
-                forwardToken();
                 return;
             }
             try
@@ -690,16 +375,14 @@ namespace EventManager_CSharp_WCF_Lib
             catch
             {
                 Console.WriteLine("Invalid event ID given. Should be an integer.");
-                forwardToken();
                 return;
             }
 
             _remove(_tokens[1]);
             foreach (Client _client in Client.clientsMap.Values)
             {
-                _client.makeFunction("Remove", new string[] { _tokens[1] });
+                _client.eManager._remove(_tokens[1]);
             }
-            forwardToken();
         }
 
         public int _clear()
@@ -717,15 +400,11 @@ namespace EventManager_CSharp_WCF_Lib
         /// </summary>
         private void clear()
         {
-            waitsForToken = true;
-            token.WaitOne();
-            waitsForToken = false;
             _clear();
             foreach (Client _client in Client.clientsMap.Values)
             {
-                _client.makeFunction("Clear", null);
+                _client.eManager._clear();
             }
-            forwardToken();
         }
 
         /// <summary>
@@ -748,19 +427,6 @@ namespace EventManager_CSharp_WCF_Lib
             Console.Out.WriteLine(text);
             Console.Out.Write(">");
             return 0;
-        }
-
-        private void letThemTalk(string text)
-        {
-            text = text.Substring(3);
-            foreach (Client _client in Client.clientsMap.Values)
-                _client.makeFunction("Say", new string[] { text });
-        }
-
-        private void listPeers()
-        {
-            foreach (string addr in Client.clientsMap.Keys)
-                Console.Out.WriteLine(addr);
         }
     }
 }
